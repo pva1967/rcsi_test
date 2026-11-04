@@ -57,7 +57,7 @@ docker compose up -d --wait
 docker compose exec app php artisan migrate:fresh --seed
 ```
 
-Первый запуск занимает несколько минут: контейнер устанавливает зависимости. API доступно по адресу `http://localhost:8000/api`.
+Первый запуск занимает несколько минут: контейнер устанавливает зависимости. Nginx доступен по адресу `http://localhost:8083`, API — по адресу `http://localhost:8083/api`. Порт можно изменить через переменную `NGINX_PORT`.
 
 ## Тесты
 
@@ -105,7 +105,7 @@ MCP-сервер Boost запускается на вашей машине, а �
 Пример:
 
 ```sh
-curl -X POST http://localhost:8000/api/bookings \
+curl -X POST http://localhost:8083/api/bookings \
   -H "Authorization: Bearer anna-token" \
   -H "Accept: application/json" \
   -H "Content-Type: application/json" \
