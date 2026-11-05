@@ -38,9 +38,9 @@ class BookingController extends Controller
         }
     }
 
-    public function destroy(string $id, BookingService $bookingService): Response
+    public function destroy(string $id, Request $request, BookingService $bookingService): Response
     {
-        $bookingService->cancel(Booking::findOrFail($id));
+        $bookingService->cancel(Booking::findOrFail($id), (int) $request->user()->id);
 
         return response()->noContent();
     }
