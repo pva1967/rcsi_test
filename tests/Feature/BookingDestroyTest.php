@@ -24,4 +24,16 @@ class BookingDestroyTest extends TestCase
 
         $this->assertDatabaseMissing('bookings', ['id' => $booking->id]);
     }
+
+    public function test_cannot_cancel_another_users_booking(): void
+    {
+        $booking = Booking::factory()->create();
+
+        Sanctum::actingAs(User::factory()->create());
+
+        $this->deleteJson("/api/bookings/{$booking->id}")
+            ->assertForbidden();
+
+        $this->assertDatabaseHas('bookings', ['id' => $booking->id]);
+    }
 }

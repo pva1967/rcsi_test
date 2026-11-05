@@ -57,8 +57,8 @@ class BookingStoreTest extends TestCase
     {
         $room = Room::factory()->create();
         Booking::factory()->for($room)->create([
-            'starts_at' => '2026-11-06T10:00:00+03:00',
-            'ends_at' => '2026-11-06T11:00:00+03:00',
+            'starts_at' => '2026-11-06T07:00:00Z',
+            'ends_at' => '2026-11-06T08:00:00Z',
         ]);
         Sanctum::actingAs(User::factory()->create());
 
