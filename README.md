@@ -67,6 +67,39 @@ docker compose exec app php artisan test
 
 Тесты идут на PostgreSQL в отдельной базе `testing`.
 
+## Защита от гонки при бронировании
+
+Одной транзакции недостаточно: если два запроса одновременно проверят свободный слот, оба могут не увидеть ещё не созданную бронь и затем вставить пересекающиеся записи. Нужно сериализовать операцию для одной комнаты: внутри `DB::transaction()` сначала заблокировать строку комнаты через `lockForUpdate()`, затем проверить пересечения и создать бронь. Блокировать нужно именно комнату, потому что строки конфликтующей брони до вставки ещё нет. Запросы для разных комнат при этом не блокируют друг друга.
+
+```php
+$booking = DB::transaction(function () use ($data, $startsAtUtc, $endsAtUtc): Booking {
+    $room = Room::query()
+        ->whereKey($data->roomId)
+        ->lockForUpdate()
+        ->firstOrFail();
+
+    $hasConflict = Booking::query()
+        ->where('room_id', $room->id)
+        ->where('starts_at', '<', $endsAtUtc)
+        ->where('ends_at', '>', $startsAtUtc)
+        ->exists();
+
+    if ($hasConflict) {
+        throw new BookingConflictException();
+    }
+
+    return Booking::query()->create([
+        'room_id' => $room->id,
+        'user_id' => $data->userId,
+        'title' => $data->title,
+        'starts_at' => $startsAtUtc,
+        'ends_at' => $endsAtUtc,
+    ]);
+});
+```
+
+`$startsAtUtc` и `$endsAtUtc` здесь уже нормализованы в UTC; исключение конфликта прерывает транзакцию. Все пути создания брони должны брать одну и ту же блокировку комнаты, иначе гарантия сериализации теряется. Для проверки гонки полезен интеграционный тест на PostgreSQL с двумя отдельными соединениями.
+
 ## ИИ-агенты
 
 В проекте установлен [Laravel Boost](https://laravel.com/docs/boost): правила для агентов лежат в `AGENTS.md` и `CLAUDE.md`. Скиллы и MCP-сервер для своего агента можно подключить командой:
@@ -113,3 +146,17 @@ curl -X POST http://localhost:8083/api/bookings \
 ```
 
 Лог созданных броней пишется в `storage/logs/bookings.log`.
+
+## Быстрый запуск проекта и тестов
+
+Запустить контейнеры и подготовить базу с начальными данными:
+
+```sh
+docker compose up -d --wait && docker compose exec app php artisan migrate:fresh --seed
+```
+
+Запустить тесты:
+
+```sh
+docker compose exec app php artisan test
+```
