@@ -2,12 +2,16 @@
 
 namespace App\Http\Controllers;
 
+use App\Data\Bookings\CreateBookingData;
+use App\Exceptions\BookingConflictException;
+use App\Exceptions\BookingOutsideBusinessHoursException;
+use App\Http\Requests\StoreBookingRequest;
 use App\Models\Booking;
 use App\Models\Room;
-use Carbon\Carbon;
+use App\Services\BookingService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
+use Illuminate\Http\Response;
 
 class BookingController extends Controller
 {
@@ -18,33 +22,25 @@ class BookingController extends Controller
             ->paginate(20);
     }
 
-    public function store(Request $request)
+    public function store(StoreBookingRequest $request, BookingService $bookingService): Booking|JsonResponse
     {
-        $conflict = DB::select("SELECT id FROM bookings
-            WHERE room_id = {$request->room_id}
-            AND starts_at <= '{$request->ends_at}'
-            AND ends_at >= '{$request->starts_at}'");
+        $data = CreateBookingData::fromValidated(
+            $request->validated(),
+            (int) $request->user()->id,
+        );
 
-        if ($conflict) {
+        try {
+            return $bookingService->create($data);
+        } catch (BookingConflictException) {
             return response()->json(['error' => 'Комната занята'], 409);
-        }
-
-        $start = Carbon::parse($request->starts_at);
-        if ($start->hour < 9 || $start->hour >= 20) {
+        } catch (BookingOutsideBusinessHoursException) {
             return response()->json(['error' => 'Нерабочее время'], 422);
         }
-
-        $booking = Booking::create($request->all());
-
-        Log::withContext(['booking_id' => $booking->id]);
-        Log::channel('bookings')->info('Booking created');
-
-        return $booking;
     }
 
-    public function destroy($id)
+    public function destroy(string $id, BookingService $bookingService): Response
     {
-        Booking::findOrFail($id)->delete();
+        $bookingService->cancel(Booking::findOrFail($id));
 
         return response()->noContent();
     }
