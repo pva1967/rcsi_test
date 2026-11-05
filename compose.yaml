@@ -40,6 +40,8 @@ services:
     volumes:
       - postgres:/var/lib/postgresql/data
       - ./docker/create-testing-db.sql:/docker-entrypoint-initdb.d/create-testing-db.sql:ro
+    ports:
+        - "127.0.0.1:5433:5432"
     healthcheck:
       test: ["CMD", "pg_isready", "-U", "booking", "-d", "booking"]
       interval: 2s
