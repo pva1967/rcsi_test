@@ -54,8 +54,7 @@ class BookingService
             'ends_at' => $endsAtUtc,
         ]);
 
-        Log::withContext(['booking_id' => $booking->id]);
-        Log::channel('bookings')->info('Booking created');
+        Log::channel('bookings')->info('Booking created', ['booking_id' => $booking->id]);
 
         return $booking;
     }
